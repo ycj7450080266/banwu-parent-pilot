@@ -1,0 +1,62 @@
+<view class="page">
+  <view class="topline">
+    <view>
+      <view class="eyebrow">{{profile.childName}} · 家长清单</view>
+      <view class="page-title">今天的安排</view>
+      <view class="date-line">{{todayLabel}}　{{profile.groupName}}</view>
+    </view>
+    <view class="settings-entry" bindtap="openSettings">设置</view>
+  </view>
+
+  <view class="sync-card card">
+    <view class="sync-dot"></view>
+    <view class="sync-copy">
+      <view class="sync-title">小程序预览版 · 云同步未连接</view>
+      <view class="sync-sub">此处待办保存在微信本地，与安卓助手尚未同步</view>
+    </view>
+    <view class="sync-arrow">›</view>
+  </view>
+
+  <view class="count-row">
+    <view class="count">{{pendingCount}} 项待办</view>
+    <view class="muted count-note">可手动补充或确认完成</view>
+  </view>
+
+  <view class="filters">
+    <view wx:for="{{filters}}" wx:key="key" class="filter {{activeFilter === item.key ? 'selected' : ''}}" data-key="{{item.key}}" bindtap="selectFilter">{{item.label}}</view>
+  </view>
+
+  <view wx:if="{{visibleTasks.length}}" class="task-list">
+    <view wx:for="{{visibleTasks}}" wx:key="id" class="task-card card" data-id="{{item.id}}" bindtap="openDetail">
+      <view class="task-main">
+        <view class="task-title {{item.done ? 'task-done' : ''}}">{{item.title}}</view>
+        <view class="task-meta">{{item.due || '未注明时间'}} · {{item.source}}</view>
+      </view>
+      <button class="complete {{item.done ? 'complete-done' : ''}}" catchtap="toggleTask" data-id="{{item.id}}">{{item.done ? '恢复' : '完成'}}</button>
+    </view>
+  </view>
+
+  <view wx:else class="empty-card card">
+    <view class="empty-mark">✓</view>
+    <view class="empty-title">{{emptyTitle}}</view>
+    <view class="empty-copy">收到的群通知不会自动进入这个预览版。连接安卓助手和云同步后，任务才能在此显示。</view>
+  </view>
+
+  <view wx:if="{{showForm}}" class="form-card card">
+    <view class="form-title">补充待办</view>
+    <input class="field" placeholder="要完成什么？" value="{{draftTitle}}" bindinput="onTitleInput" maxlength="60" />
+    <input class="field" placeholder="截止时间（可选）" value="{{draftDue}}" bindinput="onDueInput" maxlength="30" />
+    <view class="form-actions">
+      <view class="secondary form-cancel" bindtap="cancelAdd">取消</view>
+      <view class="primary form-save" bindtap="saveTask">保存待办</view>
+    </view>
+  </view>
+  <view wx:else class="add-button" bindtap="startAdd">＋ 手动补充一项</view>
+
+  <view class="privacy-note">桌面待办小组件在安卓助手中运行。小程序预览数据仅存于微信本地。</view>
+  <view class="bottom-nav">
+    <view class="nav-item nav-active">☑<text>待办</text></view>
+    <view class="nav-item" bindtap="openSettings">◉<text>我的</text></view>
+  </view>
+</view>
+

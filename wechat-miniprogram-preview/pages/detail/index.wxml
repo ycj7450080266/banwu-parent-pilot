@@ -1,0 +1,17 @@
+<view class="page" wx:if="{{task}}">
+  <view class="eyebrow">任务详情 · {{task.done ? '已完成' : '待完成'}}</view>
+  <view class="task-title">{{task.title}}</view>
+  <view class="due-chip">{{task.due || '未注明时间'}}</view>
+
+  <view class="info-card card">
+    <view class="info-row"><text class="label">适用对象</text><text>{{profile.childName}}</text></view>
+    <view class="info-row"><text class="label">消息来源</text><text>{{task.source || '家长手动补充'}}</text></view>
+    <view wx:if="{{task.excerpt}}" class="excerpt">{{task.excerpt}}</view>
+    <view wx:else class="excerpt muted">小程序预览版暂未连接群消息来源。</view>
+  </view>
+
+  <view class="review-note">请核对任务内容和适用对象，再确认完成。</view>
+  <view class="primary action" bindtap="toggleTask">{{task.done ? '恢复为待办' : '标记为已完成'}}</view>
+  <view class="remove-action" bindtap="removeTask">从我的清单移除</view>
+</view>
+

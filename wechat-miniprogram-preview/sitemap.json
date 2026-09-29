@@ -1,0 +1,5 @@
+{
+  "desc": "班务清单试点预览页面",
+  "rules": [{ "action": "allow", "page": "*" }]
+}
+

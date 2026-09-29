@@ -1,0 +1,16 @@
+{
+  "pages": [
+    "pages/todos/index",
+    "pages/detail/index",
+    "pages/settings/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "班务清单",
+    "navigationBarBackgroundColor": "#F6F7FA",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#F6F7FA"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}
+

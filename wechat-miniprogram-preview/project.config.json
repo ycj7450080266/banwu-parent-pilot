@@ -1,0 +1,17 @@
+{
+  "description": "班务清单家长端试点预览",
+  "appid": "touristappid",
+  "projectname": "banwu-parent-pilot",
+  "compileType": "miniprogram",
+  "miniprogramRoot": "./",
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "compileHotReLoad": true
+  },
+  "condition": {}
+}
+

@@ -1,0 +1,12 @@
+.setting-card { margin-top: 28rpx; }
+.field-label { color: #777b86; font-size: 22rpx; }
+.field { height: 86rpx; margin-top: 10rpx; padding: 0 20rpx; border: 1rpx solid #e4e6ec; border-radius: 18rpx; color: #1a1c22; background: #fff; font-size: 27rpx; }
+.field-help { margin-top: 8rpx; color: #858993; font-size: 21rpx; line-height: 1.5; }
+.second { margin-top: 30rpx; }
+.sync-card { margin-top: 24rpx; background: #f0f2f7; }
+.sync-title { font-size: 26rpx; font-weight: 600; }
+.sync-copy { margin-top: 10rpx; color: #717580; font-size: 22rpx; line-height: 1.65; }
+.sync-state { display: inline-flex; margin-top: 16rpx; padding: 8rpx 14rpx; border-radius: 14rpx; color: #70747d; background: #e6e8ed; font-size: 20rpx; }
+.save-button { margin-top: 30rpx; }
+.privacy-note { margin: 20rpx 4rpx; color: #858993; font-size: 21rpx; line-height: 1.6; }
+

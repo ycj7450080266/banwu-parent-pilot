@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">班务清单</string>
+    <string name="widget_name">班务清单待办</string>
+    <string name="widget_description">在桌面查看并勾选班级待办</string>
+</resources>

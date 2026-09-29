@@ -1,0 +1,11 @@
+.eyebrow { margin: 14rpx 0 16rpx; color: #777b86; font-size: 23rpx; }
+.task-title { margin-bottom: 18rpx; font-size: 44rpx; font-weight: 700; line-height: 1.35; }
+.due-chip { display: inline-flex; padding: 12rpx 18rpx; border-radius: 16rpx; color: #9c6d10; background: #fff5dc; font-size: 23rpx; }
+.info-card { margin-top: 28rpx; }
+.info-row { display: flex; justify-content: space-between; gap: 20rpx; padding: 10rpx 0; font-size: 24rpx; }
+.label { color: #777b86; }
+.excerpt { margin-top: 18rpx; padding: 22rpx; border-radius: 20rpx; background: #f3f4f7; color: #444852; font-size: 24rpx; line-height: 1.65; }
+.review-note { margin: 30rpx 8rpx 20rpx; color: #777b86; font-size: 23rpx; line-height: 1.6; }
+.action { margin-top: 18rpx; }
+.remove-action { padding: 28rpx; text-align: center; color: #777b86; font-size: 23rpx; }
+
