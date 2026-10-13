@@ -10,7 +10,7 @@
         android:id="@+id/widget_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="班务清单 · 待办"
+        android:text="班级消息待办 · 待办"
         android:textColor="#202522"
         android:textSize="16sp"
         android:textStyle="bold" />
@@ -20,7 +20,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:paddingTop="2dp"
-        android:text="点按一项即可标记完成"
+        android:text="点按勾选或取消"
         android:textColor="#747D78"
         android:textSize="11sp" />
 
@@ -34,10 +34,40 @@
         android:orientation="horizontal"
         android:paddingStart="6dp"
         android:paddingEnd="6dp">
-        <TextView android:id="@+id/widget_mark_1" android:layout_width="30dp" android:layout_height="30dp" android:gravity="center" android:text="○" android:textColor="#33846B" android:textSize="22sp" android:contentDescription="标记完成" />
-        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="8dp">
-            <TextView android:id="@+id/widget_task_1" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:text="待办事项" android:textColor="#202522" android:textSize="14sp" />
-            <TextView android:id="@+id/widget_meta_1" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="2dp" android:maxLines="1" android:ellipsize="end" android:text="截止时间" android:textColor="#747D78" android:textSize="10sp" />
+        <TextView
+            android:id="@+id/widget_mark_1"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:gravity="center"
+            android:text="○"
+            android:textColor="#33846B"
+            android:textSize="24sp"
+            android:contentDescription="点按标记完成" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingStart="8dp">
+            <TextView
+                android:id="@+id/widget_task_1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:text="待办事项"
+                android:textColor="#202522"
+                android:textSize="14sp" />
+            <TextView
+                android:id="@+id/widget_meta_1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="截止时间"
+                android:textColor="#747D78"
+                android:textSize="12sp" />
         </LinearLayout>
     </LinearLayout>
 
@@ -46,14 +76,45 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:minHeight="48dp"
+        android:layout_marginTop="3dp"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="6dp"
         android:paddingEnd="6dp">
-        <TextView android:id="@+id/widget_mark_2" android:layout_width="30dp" android:layout_height="30dp" android:gravity="center" android:text="○" android:textColor="#33846B" android:textSize="22sp" android:contentDescription="标记完成" />
-        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="8dp">
-            <TextView android:id="@+id/widget_task_2" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:text="待办事项" android:textColor="#202522" android:textSize="14sp" />
-            <TextView android:id="@+id/widget_meta_2" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="2dp" android:maxLines="1" android:ellipsize="end" android:text="截止时间" android:textColor="#747D78" android:textSize="10sp" />
+        <TextView
+            android:id="@+id/widget_mark_2"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:gravity="center"
+            android:text="○"
+            android:textColor="#33846B"
+            android:textSize="24sp"
+            android:contentDescription="点按标记完成" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingStart="8dp">
+            <TextView
+                android:id="@+id/widget_task_2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:text="待办事项"
+                android:textColor="#202522"
+                android:textSize="14sp" />
+            <TextView
+                android:id="@+id/widget_meta_2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="截止时间"
+                android:textColor="#747D78"
+                android:textSize="12sp" />
         </LinearLayout>
     </LinearLayout>
 
@@ -62,14 +123,656 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:minHeight="48dp"
+        android:layout_marginTop="3dp"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="6dp"
         android:paddingEnd="6dp">
-        <TextView android:id="@+id/widget_mark_3" android:layout_width="30dp" android:layout_height="30dp" android:gravity="center" android:text="○" android:textColor="#33846B" android:textSize="22sp" android:contentDescription="标记完成" />
-        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="8dp">
-            <TextView android:id="@+id/widget_task_3" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:text="待办事项" android:textColor="#202522" android:textSize="14sp" />
-            <TextView android:id="@+id/widget_meta_3" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="2dp" android:maxLines="1" android:ellipsize="end" android:text="截止时间" android:textColor="#747D78" android:textSize="10sp" />
+        <TextView
+            android:id="@+id/widget_mark_3"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:gravity="center"
+            android:text="○"
+            android:textColor="#33846B"
+            android:textSize="24sp"
+            android:contentDescription="点按标记完成" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingStart="8dp">
+            <TextView
+                android:id="@+id/widget_task_3"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:text="待办事项"
+                android:textColor="#202522"
+                android:textSize="14sp" />
+            <TextView
+                android:id="@+id/widget_meta_3"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="截止时间"
+                android:textColor="#747D78"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_row_4"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:layout_marginTop="3dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp">
+        <TextView
+            android:id="@+id/widget_mark_4"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:gravity="center"
+            android:text="○"
+            android:textColor="#33846B"
+            android:textSize="24sp"
+            android:contentDescription="点按标记完成" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingStart="8dp">
+            <TextView
+                android:id="@+id/widget_task_4"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:text="待办事项"
+                android:textColor="#202522"
+                android:textSize="14sp" />
+            <TextView
+                android:id="@+id/widget_meta_4"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="截止时间"
+                android:textColor="#747D78"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_row_5"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:layout_marginTop="3dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp">
+        <TextView
+            android:id="@+id/widget_mark_5"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:gravity="center"
+            android:text="○"
+            android:textColor="#33846B"
+            android:textSize="24sp"
+            android:contentDescription="点按标记完成" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingStart="8dp">
+            <TextView
+                android:id="@+id/widget_task_5"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:text="待办事项"
+                android:textColor="#202522"
+                android:textSize="14sp" />
+            <TextView
+                android:id="@+id/widget_meta_5"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="截止时间"
+                android:textColor="#747D78"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_row_6"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:layout_marginTop="3dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp">
+        <TextView
+            android:id="@+id/widget_mark_6"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:gravity="center"
+            android:text="○"
+            android:textColor="#33846B"
+            android:textSize="24sp"
+            android:contentDescription="点按标记完成" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingStart="8dp">
+            <TextView
+                android:id="@+id/widget_task_6"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:text="待办事项"
+                android:textColor="#202522"
+                android:textSize="14sp" />
+            <TextView
+                android:id="@+id/widget_meta_6"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="截止时间"
+                android:textColor="#747D78"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_row_7"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:layout_marginTop="3dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp">
+        <TextView
+            android:id="@+id/widget_mark_7"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:gravity="center"
+            android:text="○"
+            android:textColor="#33846B"
+            android:textSize="24sp"
+            android:contentDescription="点按标记完成" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingStart="8dp">
+            <TextView
+                android:id="@+id/widget_task_7"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:text="待办事项"
+                android:textColor="#202522"
+                android:textSize="14sp" />
+            <TextView
+                android:id="@+id/widget_meta_7"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="截止时间"
+                android:textColor="#747D78"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_row_8"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:layout_marginTop="3dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp">
+        <TextView
+            android:id="@+id/widget_mark_8"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:gravity="center"
+            android:text="○"
+            android:textColor="#33846B"
+            android:textSize="24sp"
+            android:contentDescription="点按标记完成" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingStart="8dp">
+            <TextView
+                android:id="@+id/widget_task_8"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:text="待办事项"
+                android:textColor="#202522"
+                android:textSize="14sp" />
+            <TextView
+                android:id="@+id/widget_meta_8"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="截止时间"
+                android:textColor="#747D78"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_row_9"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:layout_marginTop="3dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp">
+        <TextView
+            android:id="@+id/widget_mark_9"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:gravity="center"
+            android:text="○"
+            android:textColor="#33846B"
+            android:textSize="24sp"
+            android:contentDescription="点按标记完成" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingStart="8dp">
+            <TextView
+                android:id="@+id/widget_task_9"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:text="待办事项"
+                android:textColor="#202522"
+                android:textSize="14sp" />
+            <TextView
+                android:id="@+id/widget_meta_9"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="截止时间"
+                android:textColor="#747D78"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_row_10"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:layout_marginTop="3dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp">
+        <TextView
+            android:id="@+id/widget_mark_10"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:gravity="center"
+            android:text="○"
+            android:textColor="#33846B"
+            android:textSize="24sp"
+            android:contentDescription="点按标记完成" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingStart="8dp">
+            <TextView
+                android:id="@+id/widget_task_10"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:text="待办事项"
+                android:textColor="#202522"
+                android:textSize="14sp" />
+            <TextView
+                android:id="@+id/widget_meta_10"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="截止时间"
+                android:textColor="#747D78"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_row_11"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:layout_marginTop="3dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp">
+        <TextView
+            android:id="@+id/widget_mark_11"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:gravity="center"
+            android:text="○"
+            android:textColor="#33846B"
+            android:textSize="24sp"
+            android:contentDescription="点按标记完成" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingStart="8dp">
+            <TextView
+                android:id="@+id/widget_task_11"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:text="待办事项"
+                android:textColor="#202522"
+                android:textSize="14sp" />
+            <TextView
+                android:id="@+id/widget_meta_11"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="截止时间"
+                android:textColor="#747D78"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_row_12"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:layout_marginTop="3dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp">
+        <TextView
+            android:id="@+id/widget_mark_12"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:gravity="center"
+            android:text="○"
+            android:textColor="#33846B"
+            android:textSize="24sp"
+            android:contentDescription="点按标记完成" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingStart="8dp">
+            <TextView
+                android:id="@+id/widget_task_12"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:text="待办事项"
+                android:textColor="#202522"
+                android:textSize="14sp" />
+            <TextView
+                android:id="@+id/widget_meta_12"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="截止时间"
+                android:textColor="#747D78"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_row_13"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:layout_marginTop="3dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp">
+        <TextView
+            android:id="@+id/widget_mark_13"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:gravity="center"
+            android:text="○"
+            android:textColor="#33846B"
+            android:textSize="24sp"
+            android:contentDescription="点按标记完成" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingStart="8dp">
+            <TextView
+                android:id="@+id/widget_task_13"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:text="待办事项"
+                android:textColor="#202522"
+                android:textSize="14sp" />
+            <TextView
+                android:id="@+id/widget_meta_13"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="截止时间"
+                android:textColor="#747D78"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_row_14"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:layout_marginTop="3dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp">
+        <TextView
+            android:id="@+id/widget_mark_14"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:gravity="center"
+            android:text="○"
+            android:textColor="#33846B"
+            android:textSize="24sp"
+            android:contentDescription="点按标记完成" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingStart="8dp">
+            <TextView
+                android:id="@+id/widget_task_14"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:text="待办事项"
+                android:textColor="#202522"
+                android:textSize="14sp" />
+            <TextView
+                android:id="@+id/widget_meta_14"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="截止时间"
+                android:textColor="#747D78"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_row_15"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:layout_marginTop="3dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp">
+        <TextView
+            android:id="@+id/widget_mark_15"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:gravity="center"
+            android:text="○"
+            android:textColor="#33846B"
+            android:textSize="24sp"
+            android:contentDescription="点按标记完成" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingStart="8dp">
+            <TextView
+                android:id="@+id/widget_task_15"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:text="待办事项"
+                android:textColor="#202522"
+                android:textSize="14sp" />
+            <TextView
+                android:id="@+id/widget_meta_15"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="截止时间"
+                android:textColor="#747D78"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_row_16"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:layout_marginTop="3dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp">
+        <TextView
+            android:id="@+id/widget_mark_16"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:gravity="center"
+            android:text="○"
+            android:textColor="#33846B"
+            android:textSize="24sp"
+            android:contentDescription="点按标记完成" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingStart="8dp">
+            <TextView
+                android:id="@+id/widget_task_16"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:text="待办事项"
+                android:textColor="#202522"
+                android:textSize="14sp" />
+            <TextView
+                android:id="@+id/widget_meta_16"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="截止时间"
+                android:textColor="#747D78"
+                android:textSize="12sp" />
         </LinearLayout>
     </LinearLayout>
 
@@ -89,7 +792,7 @@
         android:layout_height="wrap_content"
         android:gravity="end"
         android:paddingTop="4dp"
-        android:text="打开班务清单查看全部 ›"
+        android:text="打开班级消息待办查看全部 ›"
         android:textColor="#33846B"
-        android:textSize="10sp" />
+        android:textSize="12sp" />
 </LinearLayout>

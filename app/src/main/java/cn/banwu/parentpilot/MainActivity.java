@@ -7,6 +7,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ActivityNotFoundException;
 import android.content.pm.PackageManager;
 import android.animation.ValueAnimator;
 import android.graphics.Canvas;
@@ -18,6 +19,8 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.view.Gravity;
@@ -27,12 +30,16 @@ import android.view.animation.LinearInterpolator;
 import android.view.inputmethod.InputMethodManager;
 import android.content.res.ColorStateList;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.NumberPicker;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.text.TextWatcher;
+import android.text.Editable;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.LinkedHashMap;
@@ -41,6 +48,9 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.List;
 import java.util.Locale;
+import com.google.mlkit.vision.common.InputImage;
+import com.google.mlkit.vision.text.TextRecognition;
+import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions;
 
 public class MainActivity extends Activity {
     public static final String ACTION_REFRESH = "cn.banwu.parentpilot.REFRESH";
@@ -48,11 +58,18 @@ public class MainActivity extends Activity {
     private static final int INK = Color.rgb(26, 28, 34);
     private static final int MUTED = Color.rgb(112, 116, 126);
     private static final int BG = Color.rgb(246, 247, 250);
-    private LinearLayout root, content, bottomActions;
+    private LinearLayout root, content, bottomActions, entryBar;
     private TextView syncStatus;
+    private TextView settingsSaveStatus;
+    private Button settingsPermissionButton;
     private RadarView radarView;
     private EditText settingsChildField, settingsGroupField, settingsScopeKeywordsField, settingsTaskKeywordsField, manualTitleField;
+    private EditText settingsApiUrlField, settingsAiModelField, settingsApiKeyField;
+    private CheckBox settingsAiEnabledField, settingsAiConsentField;
+    private Button settingsTestApiButton;
     private TextView manualAssignedValue, manualDueValue, manualAssignerValue;
+    private TextView manualTypeValue;
+    private String manualType = "task";
     private boolean settingsPage, manualPage;
     private String activeCategory = "";
     private boolean showCompletedCategoryItems;
@@ -60,6 +77,19 @@ public class MainActivity extends Activity {
     private long manualAssignedAt, manualDueAt;
     private String manualAssigner = "";
     private boolean receiverRegistered;
+    private boolean clearApiKey;
+    private final Handler settingsSaveHandler = new Handler(Looper.getMainLooper());
+    private final Runnable settingsAutosave = this::persistSettings;
+    private final Handler listenerRecoveryHandler = new Handler(Looper.getMainLooper());
+    private final Runnable listenerRecoveryCheck = new Runnable() {
+        @Override public void run() {
+            if (isFinishing() || isDestroyed()) return;
+            WeChatNotificationListener.ensureBound(MainActivity.this);
+            updateSyncStatus();
+            listenerRecoveryHandler.postDelayed(this, 5000L);
+        }
+    };
+    private static final int REQUEST_CAMERA_TEXT = 231, REQUEST_VOICE_TEXT = 232;
     private final BroadcastReceiver refreshReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
             if (!settingsPage && !manualPage) { showCompletedFeed = false; renderHome(); }
@@ -84,21 +114,37 @@ public class MainActivity extends Activity {
     }
 
     @Override protected void onStop() {
+        listenerRecoveryHandler.removeCallbacks(listenerRecoveryCheck);
         if (receiverRegistered) { unregisterReceiver(refreshReceiver); receiverRegistered = false; }
         if (radarView != null) radarView.setRunning(false);
         super.onStop();
     }
 
+    @Override protected void onPause() {
+        if (settingsPage) {
+            settingsSaveHandler.removeCallbacks(settingsAutosave);
+            persistSettings();
+        }
+        super.onPause();
+    }
+
     @Override protected void onResume() {
         super.onResume();
-        if (root != null) { if (settingsPage) renderSettings(); else if (manualPage) renderManualForm(); else renderHome(); }
+        WeChatNotificationListener.ensureBound(this);
+        listenerRecoveryHandler.removeCallbacks(listenerRecoveryCheck);
+        listenerRecoveryHandler.postDelayed(listenerRecoveryCheck, 5000L);
+        if (root != null) {
+            if (settingsPage) updateSyncStatus();
+            else if (manualPage) renderManualForm();
+            else renderHome();
+        }
     }
 
     private void buildRoot() {
         root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(BG);
         setContentView(root);
         LinearLayout top = new LinearLayout(this); top.setGravity(Gravity.CENTER_VERTICAL); top.setPadding(dp(22), dp(43), dp(18), dp(10));
-        TextView title = text("班务清单", 26, INK, true);
+        TextView title = text("班级消息待办", 26, INK, true);
         top.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
         LinearLayout syncBadge = new LinearLayout(this); syncBadge.setGravity(Gravity.CENTER_VERTICAL);
         radarView = new RadarView(this); syncBadge.addView(radarView, new LinearLayout.LayoutParams(dp(24), dp(24)));
@@ -108,26 +154,37 @@ public class MainActivity extends Activity {
         syncBadge.addView(syncStatus, statusParams);
         top.addView(syncBadge);
         root.addView(top);
+        entryBar = new LinearLayout(this);
+        entryBar.setOrientation(LinearLayout.HORIZONTAL);
+        entryBar.setPadding(dp(18), dp(2), dp(18), dp(4));
+        FrameLayout body = new FrameLayout(this);
+        root.addView(body, new LinearLayout.LayoutParams(-1, 0, 1));
         ScrollView scroller = new ScrollView(this); scroller.setFillViewport(true);
-        content = new LinearLayout(this); content.setOrientation(LinearLayout.VERTICAL); content.setPadding(dp(18), dp(8), dp(18), dp(30));
+        content = new LinearLayout(this); content.setOrientation(LinearLayout.VERTICAL); content.setPadding(dp(18), dp(8), dp(18), dp(112));
         scroller.addView(content);
-        root.addView(scroller, new LinearLayout.LayoutParams(-1, 0, 1));
+        body.addView(scroller, new FrameLayout.LayoutParams(-1, -1));
         bottomActions = new LinearLayout(this); bottomActions.setOrientation(LinearLayout.HORIZONTAL);
-        bottomActions.setGravity(Gravity.CENTER); bottomActions.setPadding(dp(24), dp(3), dp(24), dp(12));
-        root.addView(bottomActions, new LinearLayout.LayoutParams(-1, -2));
+        bottomActions.setGravity(Gravity.CENTER); bottomActions.setPadding(dp(16), dp(8), dp(16), dp(16));
+        body.addView(bottomActions, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
+        body.addView(entryBar, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
     }
 
     private void renderHome() {
         if (content == null) return;
         settingsPage = false; manualPage = false;
         activeCategory = "";
+        renderMainEntryBar();
         content.removeAllViews();
+        content.setPadding(dp(18), dp(8), dp(18), dp(84));
         List<TodoItem> items = TodoStore.all(this);
 
         updateSyncStatus();
         renderMessageTimeline(items);
 
-        TextView note = text("识别只在本机进行；群免打扰、通知预览关闭或系统未显示通知时，可能收不到消息。", 11, MUTED, false);
+        String recognitionNote=TodoStore.aiEnabled(this)&&TodoStore.aiConsent(this)
+                ? "已选择模型分析时，选中群通知正文及该群未完成事项摘要脱敏后发送到你配置的服务；照片 OCR 在本机完成。通知预览关闭或系统未显示通知时，可能收不到消息。"
+                : "本机按规则整理通知；照片 OCR 在本机完成。群免打扰、通知预览关闭或系统未显示通知时，可能收不到消息。";
+        TextView note = text(recognitionNote, 11, MUTED, false);
         note.setPadding(dp(4), dp(16), dp(4), dp(6)); content.addView(note);
         configureHomeActions();
     }
@@ -135,41 +192,80 @@ public class MainActivity extends Activity {
     private void updateSyncStatus() {
         if (syncStatus == null || radarView == null) return;
         boolean enabled = WeChatNotificationListener.isEnabled(this);
+        boolean connected = WeChatNotificationListener.isRuntimeConnected();
         boolean paused = TodoStore.paused(this);
-        String label = !enabled ? "同步未开启" : paused ? "整理已暂停" : "群消息同步已开启";
+        String label = !enabled ? "\u901a\u77e5\u8bbf\u95ee\u672a\u5f00\u542f" : paused ? "\u6574\u7406\u5df2\u6682\u505c" : connected ? "\u7fa4\u6d88\u606f\u540c\u6b65\u5df2\u5f00\u542f" : "\u901a\u77e5\u76d1\u542c\u8fde\u63a5\u4e2d";
         syncStatus.setText(label);
-        syncStatus.setTextColor(enabled && !paused ? Color.rgb(43, 126, 94) : MUTED);
-        radarView.setRunning(enabled && !paused);
+        syncStatus.setTextColor(enabled && !paused && connected ? Color.rgb(43, 126, 94) : MUTED);
+        radarView.setRunning(enabled && !paused && connected);
+        if (settingsPermissionButton != null) {
+            settingsPermissionButton.setText(enabled ? "通知访问已开启 · 管理权限" : "前往系统开启通知访问");
+            settingsPermissionButton.setBackgroundTintList(ColorStateList.valueOf(enabled ? Color.rgb(229, 244, 236) : BLUE));
+            settingsPermissionButton.setTextColor(enabled ? Color.rgb(28, 114, 72) : Color.WHITE);
+        }
     }
 
-    private void renderMessageTimeline(List<TodoItem> items) {
-        int totalPending = 0, totalCompleted = 0;
-        for (TodoItem item : items) if (item.done) totalCompleted++; else totalPending++;
-        LinearLayout tabs = new LinearLayout(this); tabs.setOrientation(LinearLayout.HORIZONTAL); tabs.setPadding(dp(4), dp(4), dp(4), dp(4));
+    private void renderMainEntryBar() {
+        if (entryBar == null) return;
+        entryBar.removeAllViews();
+        int pending = 0, completed = 0;
+        for (TodoItem item : TodoStore.all(this)) if (item.done) completed++; else pending++;
+        LinearLayout tabs = new LinearLayout(this);
+        tabs.setOrientation(LinearLayout.HORIZONTAL);
+        tabs.setPadding(dp(4), dp(4), dp(4), dp(4));
         tabs.setBackground(shape(Color.rgb(235, 237, 242), dp(14), Color.rgb(235, 237, 242)));
-        TextView pendingTab = tab("待完成  " + totalPending, !showCompletedFeed);
-        TextView completedTab = tab("已完成  " + totalCompleted, showCompletedFeed);
-        tabs.addView(pendingTab, new LinearLayout.LayoutParams(0, dp(44), 1));
-        tabs.addView(completedTab, new LinearLayout.LayoutParams(0, dp(44), 1));
-        pendingTab.setOnClickListener(v -> { showCompletedFeed = false; renderHome(); });
-        completedTab.setOnClickListener(v -> { showCompletedFeed = true; renderHome(); });
-        content.addView(tabs, margin(0, dp(2), 0, dp(6)));
-
-        if (items.isEmpty()) {
+        boolean feedSelected = !settingsPage && !manualPage && activeCategory.isEmpty();
+        tabs.addView(homeEntry(R.drawable.ic_nav_pending, "\u5f85\u5b8c\u6210", pending,
+                feedSelected && !showCompletedFeed, () -> { showCompletedFeed = false; renderHome(); }),
+                new LinearLayout.LayoutParams(0, dp(60), 1));
+        tabs.addView(homeEntry(R.drawable.ic_nav_completed, "\u5df2\u5b8c\u6210", completed,
+                feedSelected && showCompletedFeed, () -> { showCompletedFeed = true; renderHome(); }),
+                new LinearLayout.LayoutParams(0, dp(60), 1));
+        tabs.addView(homeEntry(R.drawable.ic_nav_add, "\u624b\u52a8\u8865\u5145", -1, manualPage,
+                this::openManualSupplement), new LinearLayout.LayoutParams(0, dp(60), 1));
+        tabs.addView(homeEntry(R.drawable.ic_nav_settings, "\u8bbe\u7f6e", -1, settingsPage,
+                this::renderSettings), new LinearLayout.LayoutParams(0, dp(60), 1));
+        entryBar.addView(tabs, new LinearLayout.LayoutParams(-1, -2));
+    }
+    private void renderMessageTimeline(List<TodoItem> items) {
+        ArrayList<TodoItem> shown = new ArrayList<>();
+        for (TodoItem item : items) if (item.done == showCompletedFeed) shown.add(item);
+        if (shown.isEmpty()) {
             emptySection(showCompletedFeed ? "还没有已完成的群消息。" : "还没有待完成的群消息。开启通知访问后，新消息会按日期显示在这里。");
             return;
         }
-        ArrayList<TodoItem> sorted = new ArrayList<>(items);
-        sorted.sort((a, b) -> Long.compare(b.createdAt, a.createdAt));
+
+        shown.sort((a, b) -> Long.compare(b.createdAt, a.createdAt));
+        LinkedHashMap<String, ArrayList<TodoItem>> homeworkByDay = new LinkedHashMap<>();
+        ArrayList<TodoItem> homeworkItems = new ArrayList<>();
+        for (TodoItem item : shown) if (item.homeworkPack) homeworkItems.add(item);
+        for (TodoItem item : homeworkItems) {
+            String key = new SimpleDateFormat("yyyyMMdd", Locale.CHINA).format(new Date(item.createdAt));
+            homeworkByDay.computeIfAbsent(key, ignored -> new ArrayList<>()).add(item);
+        }
+        shown.removeAll(homeworkItems);
+        for (ArrayList<TodoItem> dayItems : homeworkByDay.values()) {
+            int pendingSteps = 0, completedSteps = 0;
+            for (TodoItem item : dayItems) if (item.homeworkSteps != null) {
+                for (int i = 0; i < item.homeworkSteps.length(); i++) {
+                    org.json.JSONObject step = item.homeworkSteps.optJSONObject(i);
+                    if (step == null) continue;
+                    if (step.optBoolean("done", false)) completedSteps++; else pendingSteps++;
+                }
+            }
+            LinearLayout heading = new LinearLayout(this); heading.setGravity(Gravity.CENTER_VERTICAL);
+            TextView dayTitle = text("\u5b66\u4e60\u4f5c\u4e1a  " + formatDay(dayItems.get(0).createdAt), 15, INK, true);
+            heading.addView(dayTitle, new LinearLayout.LayoutParams(0, -2, 1));
+            TextView counts = text(pendingSteps + " \u5f85\u5b8c\u6210  \u00b7  " + completedSteps + " \u5df2\u5b8c\u6210", 12, BLUE, true);
+            counts.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL); heading.addView(counts);
+            heading.setPadding(dp(3), dp(13), dp(3), dp(8)); content.addView(heading);
+            addHomeworkDateCard(dayItems);
+        }
+
         LinkedHashMap<String, ArrayList<TodoItem>> byDay = new LinkedHashMap<>();
-        for (TodoItem item : sorted) {
-            if (item.done != showCompletedFeed) continue;
+        for (TodoItem item : shown) {
             String key = new SimpleDateFormat("yyyyMMdd", Locale.CHINA).format(new Date(item.createdAt));
             byDay.computeIfAbsent(key, ignored -> new ArrayList<>()).add(item);
-        }
-        if (byDay.isEmpty()) {
-            emptySection(showCompletedFeed ? "还没有已完成的群消息。" : "没有待完成事项，太好了。");
-            return;
         }
         for (ArrayList<TodoItem> dayItems : byDay.values()) {
             int pending = 0, completed = 0;
@@ -199,17 +295,18 @@ public class MainActivity extends Activity {
         title.setMaxLines(3); title.setEllipsize(android.text.TextUtils.TruncateAt.END);
         if (item.done) title.setPaintFlags(title.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
         copy.addView(title);
-        TextView sender = text((item.sender.isEmpty() ? "微信群消息" : item.sender) + "  ·  " + formatDate(item.createdAt), 11, MUTED, false);
-        copy.addView(sender, margin(0, dp(4), 0, 0));
-        String extra = "截止：" + (item.due.isEmpty() ? "未注明" : item.due);
+        boolean overdue = !item.done && item.dueAt > 0 && item.dueAt < System.currentTimeMillis();
+        String extra = "截止：" + formatDueWithWeekday(item);
+        if (overdue) extra += "  ·  已超时";
+        else if (item.overdueDeferred && !item.done) extra += "  ·  已手动延时";
         if (item.done) extra += "  ·  完成：" + (item.completedAt > 0 ? formatDate(item.completedAt) : "时间未记录");
-        TextView date = text(extra, 11, MUTED, false); copy.addView(date, margin(0, dp(2), 0, 0));
+        TextView date = text(extra, 11, overdue ? Color.rgb(188, 64, 55) : MUTED, overdue); copy.addView(date, margin(0, dp(2), 0, 0));
         itemCard.addView(copy, new LinearLayout.LayoutParams(0, -2, 1));
 
         TextView check = text(item.done ? "✓" : "", 18, item.done ? Color.WHITE : BLUE, true);
         check.setGravity(Gravity.CENTER); check.setContentDescription(item.done ? "取消勾选" : "标记完成");
         check.setBackground(shape(item.done ? Color.rgb(51, 132, 107) : Color.WHITE, dp(999), item.done ? Color.rgb(51, 132, 107) : Color.rgb(204, 209, 219)));
-        LinearLayout.LayoutParams checkParams = new LinearLayout.LayoutParams(dp(42), dp(42));
+        LinearLayout.LayoutParams checkParams = new LinearLayout.LayoutParams(dp(32), dp(32));
         checkParams.setMargins(dp(9), 0, 0, 0); itemCard.addView(check, checkParams);
         check.setOnClickListener(v -> {
             TodoStore.toggle(this, item.id);
@@ -221,17 +318,73 @@ public class MainActivity extends Activity {
         content.addView(itemCard, margin(0, 0, 0, dp(8)));
     }
 
+    private static final class HomeworkRow {
+        final TodoItem item;
+        final int stepIndex;
+        final org.json.JSONObject step;
+        HomeworkRow(TodoItem item, int stepIndex, org.json.JSONObject step) {
+            this.item = item; this.stepIndex = stepIndex; this.step = step;
+        }
+    }
+
+    private void addHomeworkDateCard(List<TodoItem> items) {
+        LinearLayout table = card(); table.setOrientation(LinearLayout.VERTICAL);
+        ArrayList<HomeworkRow> rows = new ArrayList<>();
+        for (TodoItem item : items) {
+            if (item.homeworkSteps == null) continue;
+            for (int i = 0; i < item.homeworkSteps.length(); i++) {
+                org.json.JSONObject step = item.homeworkSteps.optJSONObject(i);
+                if (step != null) rows.add(new HomeworkRow(item, i, step));
+            }
+        }
+        rows.sort((a, b) -> {
+            int subjectOrder = Integer.compare(
+                    homeworkSubjectOrder(a.step.optString("text", "")),
+                    homeworkSubjectOrder(b.step.optString("text", "")));
+            if (subjectOrder != 0) return subjectOrder;
+            int dateOrder = Long.compare(b.item.createdAt, a.item.createdAt);
+            return dateOrder != 0 ? dateOrder : Integer.compare(a.stepIndex, b.stepIndex);
+        });
+        for (int pos = 0; pos < rows.size(); pos++) {
+            HomeworkRow homeworkRow = rows.get(pos);
+            boolean checked = homeworkRow.step.optBoolean("done", false);
+            LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setMinimumHeight(dp(62)); row.setPadding(dp(10), dp(5), dp(4), dp(5));
+            TextView taskText = text(homeworkRow.step.optString("text", ""), 14,
+                    checked ? MUTED : INK, false);
+            taskText.setPadding(0, dp(7), dp(8), dp(7));
+            if (checked) taskText.setPaintFlags(taskText.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
+            row.addView(taskText, new LinearLayout.LayoutParams(0, -2, 1));
+            TextView checkbox = text(checked ? "\u2713" : "", 15, checked ? Color.WHITE : BLUE, true);
+            checkbox.setGravity(Gravity.CENTER);
+            checkbox.setContentDescription((checked ? "\u53d6\u6d88\u5b8c\u6210\uff1a" : "\u6807\u8bb0\u5b8c\u6210\uff1a")
+                    + homeworkRow.step.optString("text", ""));
+            checkbox.setBackground(shape(checked ? Color.rgb(51, 132, 107) : Color.WHITE, dp(999),
+                    checked ? Color.rgb(51, 132, 107) : Color.rgb(204, 209, 219)));
+            row.addView(checkbox, new LinearLayout.LayoutParams(dp(34), dp(34)));
+            checkbox.setOnClickListener(v -> {
+                TodoStore.toggleHomeworkStep(this, homeworkRow.item.id, homeworkRow.stepIndex);
+                renderHome();
+            });
+            row.setOnClickListener(v -> showDetail(homeworkRow.item));
+            table.addView(row);
+            if (pos < rows.size() - 1) {
+                View divider = new View(this); divider.setBackgroundColor(Color.rgb(235, 237, 241));
+                table.addView(divider, new LinearLayout.LayoutParams(-1, dp(1)));
+            }
+        }
+        content.addView(table, margin(0, 0, 0, dp(9)));
+    }
+
     private int categoryColor(String category) {
-        if (TodoItem.CATEGORY_REPLY.equals(category)) return Color.rgb(105, 76, 179);
+        if (TodoItem.CATEGORY_CHECKIN.equals(category)) return Color.rgb(105, 76, 179);
         if (TodoItem.CATEGORY_NOTICE.equals(category)) return Color.rgb(40, 116, 99);
-        if (TodoItem.CATEGORY_OPTIONAL.equals(category)) return Color.rgb(166, 103, 25);
         return BLUE;
     }
 
     private int categoryTint(String category) {
-        if (TodoItem.CATEGORY_REPLY.equals(category)) return Color.rgb(239, 234, 250);
+        if (TodoItem.CATEGORY_CHECKIN.equals(category)) return Color.rgb(239, 234, 250);
         if (TodoItem.CATEGORY_NOTICE.equals(category)) return Color.rgb(230, 243, 238);
-        if (TodoItem.CATEGORY_OPTIONAL.equals(category)) return Color.rgb(250, 241, 225);
         return Color.rgb(232, 238, 255);
     }
 
@@ -267,15 +420,15 @@ public class MainActivity extends Activity {
     }
 
     private String categoryLabel(String category) {
-        if (TodoItem.CATEGORY_REPLY.equals(category)) return "回复";
+        if (TodoItem.CATEGORY_CHECKIN.equals(category)) return "打卡";
         if (TodoItem.CATEGORY_NOTICE.equals(category)) return "通知";
-        if (TodoItem.CATEGORY_OPTIONAL.equals(category)) return "自愿";
-        return "待办";
+        return "任务";
     }
 
     private void renderCategoryDetail() {
         if (content == null || activeCategory.isEmpty()) return;
         settingsPage = false; manualPage = false;
+        renderMainEntryBar();
         content.removeAllViews();
         List<TodoItem> all = TodoStore.all(this);
         ArrayList<TodoItem> inCategory = new ArrayList<>();
@@ -325,6 +478,33 @@ public class MainActivity extends Activity {
         view.setClickable(true); view.setFocusable(true); return view;
     }
 
+    private View homeEntry(int icon, String label, int count, boolean selected, Runnable action) {
+        LinearLayout cell = new LinearLayout(this);
+        cell.setOrientation(LinearLayout.VERTICAL);
+        cell.setGravity(Gravity.CENTER);
+        cell.setPadding(dp(2), dp(4), dp(2), dp(4));
+        cell.setBackground(shape(selected ? Color.WHITE : Color.TRANSPARENT, dp(11), selected ? Color.WHITE : Color.TRANSPARENT));
+        ImageView image = new ImageView(this);
+        image.setImageResource(icon);
+        image.setImageTintList(ColorStateList.valueOf(selected ? BLUE : MUTED));
+        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(dp(20), dp(20));
+        cell.addView(image, iconParams);
+        String labelText = count >= 0 ? label + " " + count : label;
+        TextView caption = text(labelText, 11, selected ? BLUE : MUTED, selected);
+        caption.setGravity(Gravity.CENTER);
+        caption.setSingleLine(true);
+        caption.setIncludeFontPadding(false);
+        LinearLayout.LayoutParams captionParams = new LinearLayout.LayoutParams(-1, -2);
+        captionParams.topMargin = dp(3);
+        cell.addView(caption, captionParams);
+        cell.setContentDescription(labelText);
+        cell.setSelected(selected);
+        cell.setClickable(true);
+        cell.setFocusable(true);
+        cell.setOnClickListener(v -> action.run());
+        return cell;
+    }
+
     private long categoryTime(TodoItem item) { return item.done && item.completedAt > 0 ? item.completedAt : item.createdAt; }
 
     private void addCategoryItemCard(TodoItem item) {
@@ -335,9 +515,11 @@ public class MainActivity extends Activity {
         if (item.done) title.setPaintFlags(title.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
         copy.addView(title);
         copy.addView(text("布置人：" + (item.sender.isEmpty() ? "未填写" : item.sender), 12, MUTED, false), margin(0, dp(4), 0, 0));
+        boolean overdue = !item.done && item.dueAt > 0 && item.dueAt < System.currentTimeMillis();
         String dates = "布置日期：" + formatDate(item.createdAt) + "\n完成日期：" + (item.due.isEmpty() ? "未注明时间" : item.due)
+                + (overdue ? "  ·  超时" : item.overdueDeferred && !item.done ? "  ·  已手动延时" : "")
                 + (item.done ? "\n实际完成：" + (item.completedAt > 0 ? formatDate(item.completedAt) : "历史未记录") : "");
-        copy.addView(text(dates, 12, MUTED, false), margin(0, dp(6), 0, 0));
+        copy.addView(text(dates, 12, overdue ? Color.rgb(188, 64, 55) : MUTED, overdue), margin(0, dp(6), 0, 0));
         itemCard.addView(copy, new LinearLayout.LayoutParams(0, -2, 1));
         TextView check = text(item.done ? "✓" : "", 18, item.done ? Color.WHITE : BLUE, true);
         check.setGravity(Gravity.CENTER); check.setContentDescription(item.done ? "取消勾选并移回待完成" : "标记完成");
@@ -404,7 +586,7 @@ public class MainActivity extends Activity {
         TextView check = text(item.done ? "✓" : "", 18, item.done ? Color.WHITE : BLUE, true);
         check.setGravity(Gravity.CENTER); check.setContentDescription(item.done ? "取消勾选" : "标记完成");
         check.setBackground(shape(item.done ? Color.rgb(31, 139, 93) : Color.WHITE, dp(999), item.done ? Color.rgb(31, 139, 93) : Color.rgb(204, 209, 219)));
-        LinearLayout.LayoutParams checkParams = new LinearLayout.LayoutParams(dp(38), dp(38));
+        LinearLayout.LayoutParams checkParams = new LinearLayout.LayoutParams(dp(29), dp(29));
         checkParams.setMargins(dp(12), 0, 0, 0); card.addView(check, checkParams);
         check.setOnClickListener(v -> {
             TodoStore.toggle(this, item.id);
@@ -421,26 +603,77 @@ public class MainActivity extends Activity {
         content.addView(empty);
     }
 
+    private int homeworkSubjectOrder(String text) {
+        String value = text == null ? "" : text.trim();
+        int separator = value.indexOf('\uFF5C');
+        if (separator < 0) separator = value.indexOf('|');
+        String subject = (separator >= 0 ? value.substring(0, separator) : value).trim();
+        if (subject.contains("\u8bed\u6587")) return 0;
+        if (subject.contains("\u6570\u5b66")) return 1;
+        if (subject.contains("\u82f1\u8bed")) return 2;
+        if (subject.contains("\u4f53\u80b2") || subject.contains("\u8fd0\u52a8")) return 3;
+        return 4;
+    }
+
+    private String formatDueWithWeekday(TodoItem item) {
+        if (item == null) return "\u672a\u6ce8\u660e\u65f6\u95f4";
+        long at = item.dueAt;
+        if (at <= 0 && item.due != null && !item.due.trim().isEmpty() && !"null".equalsIgnoreCase(item.due.trim())) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d{1,2})\u6708(\\d{1,2})\u65e5(?:\\s*(\\d{1,2}):(\\d{2}))?").matcher(item.due);
+            if (m.find()) {
+                Calendar c = Calendar.getInstance();
+                c.set(Calendar.MONTH, Integer.parseInt(m.group(1))-1);
+                c.set(Calendar.DAY_OF_MONTH, Integer.parseInt(m.group(2)));
+                c.set(Calendar.HOUR_OF_DAY, m.group(3)==null?21:Integer.parseInt(m.group(3)));
+                c.set(Calendar.MINUTE, m.group(4)==null?0:Integer.parseInt(m.group(4)));
+                c.set(Calendar.SECOND,0); c.set(Calendar.MILLISECOND,0);
+                at=c.getTimeInMillis();
+            }
+        }
+        if (at > 0) {
+            String day = new SimpleDateFormat("M\u6708d\u65e5 HH:mm", Locale.CHINA).format(new Date(at));
+            Calendar weekCalendar = Calendar.getInstance(); weekCalendar.setTimeInMillis(at);
+            String[] weekdays = {"\u661f\u671f\u65e5", "\u661f\u671f\u4e00", "\u661f\u671f\u4e8c", "\u661f\u671f\u4e09", "\u661f\u671f\u56db", "\u661f\u671f\u4e94", "\u661f\u671f\u516d"};
+            String weekday = weekdays[weekCalendar.get(Calendar.DAY_OF_WEEK) - 1];
+            return day + " \u00b7 " + weekday;
+        }
+        if (item.due == null || item.due.trim().isEmpty() || "null".equalsIgnoreCase(item.due.trim())) return "\u672a\u6ce8\u660e\u65f6\u95f4";
+        return item.due;
+    }
+
     private String formatDate(long time) {
         if (time <= 0) return "时间未记录";
         return new SimpleDateFormat("M月d日 HH:mm", Locale.CHINA).format(new Date(time));
     }
 
     private void renderSettings() {
-        settingsPage = true; manualPage = false; content.removeAllViews();
+        settingsPage = true; manualPage = false; renderMainEntryBar(); content.removeAllViews();
+        settingsSaveHandler.removeCallbacks(settingsAutosave);
+        settingsPermissionButton = null;
+        settingsSaveStatus = null;
+        content.setPadding(dp(18), dp(8), dp(18), dp(84));
+        bottomActions.setVisibility(View.GONE);
         updateSyncStatus();
-        section("同步设置");
+        section("\u8bbe\u7f6e");
+        settingsSaveStatus = text("自动保存已开启 · 已保存", 12, MUTED, false);
+        settingsSaveStatus.setPadding(dp(4), 0, dp(4), dp(8));
+        content.addView(settingsSaveStatus);
         String child = TodoStore.child(this), group = TodoStore.group(this);
         settingsChildField = input("孩子姓名（用于识别点名事项）", child);
-        settingsGroupField = input("微信群名称（按通知标题匹配）", group);
+        settingsGroupField = input("每行填写一个群聊名称，可添加多个", group.replace("、", "\n"));
+        settingsGroupField.setSingleLine(false); settingsGroupField.setMinLines(2); settingsGroupField.setMaxLines(5);
+        settingsGroupField.setGravity(Gravity.TOP | Gravity.START);
+        settingsGroupField.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         content.addView(cardField("孩子姓名", settingsChildField));
-        content.addView(cardField("班级微信群", settingsGroupField), margin(0, dp(10), 0, dp(14)));
+        content.addView(cardField("群聊（每行一个）", settingsGroupField), margin(0, dp(10), 0, dp(5)));
+        TextView groupsHelp = text("可填写多个微信班级群名称，每行一个；通知标题匹配任一群名时才会整理。", 14, MUTED, false);
+        groupsHelp.setPadding(dp(4), 0, dp(4), dp(10)); content.addView(groupsHelp);
 
         boolean enabled = WeChatNotificationListener.isEnabled(this);
-        Button permission = button(enabled ? "通知访问已开启 · 管理权限" : "前往系统开启通知访问", enabled ? Color.rgb(229, 244, 236) : BLUE, enabled ? Color.rgb(28, 114, 72) : Color.WHITE);
-        permission.setOnClickListener(v -> enableNotificationAccess());
-        content.addView(permission, margin(0, 0, 0, dp(8)));
-        TextView privacy = text("请在系统权限页选择“班务清单试用版”。应用只筛选微信中标题含已填写群名的可见通知；待办和必要的原通知摘录仅保存在本机，不上传群聊。你可以随时撤销通知访问或手动移除待办。", 13, MUTED, false);
+        settingsPermissionButton = button(enabled ? "通知访问已开启 · 管理权限" : "前往系统开启通知访问", enabled ? Color.rgb(229, 244, 236) : BLUE, enabled ? Color.rgb(28, 114, 72) : Color.WHITE);
+        settingsPermissionButton.setOnClickListener(v -> enableNotificationAccess());
+        content.addView(settingsPermissionButton, margin(0, 0, 0, dp(8)));
+        TextView privacy = text("请在系统权限页选择“班级消息待办”。应用只读取微信显示出来的通知。不开启模型时按本机规则整理；开启并同意云端分析后，将选中群通知正文及该群未完成事项摘要（孩子姓名先替换为“孩子”）发送到你配置的模型服务。API Key 仅加密保存在本机。照片 OCR 在本机完成，不上传图片；你可以随时关闭模型分析或通知访问。", 14, MUTED, false);
         privacy.setPadding(dp(3), dp(5), dp(3), dp(16)); content.addView(privacy);
 
         Button pause = button(TodoStore.paused(this) ? "恢复整理" : "暂停整理", Color.WHITE, INK);
@@ -451,22 +684,46 @@ public class MainActivity extends Activity {
             updateSyncStatus();
         }); content.addView(pause, margin(0, 0, 0, dp(9)));
 
+        section("可选：模型语义识别 API");
+        TextView aiHelp = text("不填 API 时继续使用当前本地关键词规则。填写并启用后，模型会结合该群未完成事项摘要判断消息含义，区分新建、更新或忽略，合并同一接龙、报名事件。模型接口须兼容 OpenAI Chat Completions 且使用 HTTPS；调用失败会回退本地规则。", 14, MUTED, false);
+        aiHelp.setPadding(dp(3), 0, dp(3), dp(8)); content.addView(aiHelp);
+        settingsApiUrlField = input("例如：https://api.example.com/v1", TodoStore.aiUrl(this));
+        settingsAiModelField = input("模型名称，例如 gpt-4o-mini", TodoStore.aiModel(this));
+        settingsApiKeyField = input("留空则保留已保存的 Key", "");
+        settingsApiKeyField.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        content.addView(cardField("API Base URL", settingsApiUrlField));
+        content.addView(cardField("模型名称", settingsAiModelField), margin(0, dp(8), 0, 0));
+        content.addView(cardField("API Key（加密保存在本机）", settingsApiKeyField), margin(0, dp(8), 0, dp(5)));
+        Button clearKey = button("清除本机保存的 API Key", Color.WHITE, BLUE);
+        clearKey.setOnClickListener(v -> { clearApiKey = true; settingsApiKeyField.setText(""); settingsApiKeyField.setHint("已请求清除，自动保存中"); scheduleSettingsAutosave(); });
+        content.addView(clearKey, margin(0, 0, 0, dp(5)));
+        settingsAiEnabledField = new CheckBox(this); settingsAiEnabledField.setText("启用模型识别（未配置时仍使用本地规则）");
+        settingsAiEnabledField.setTextSize(14); settingsAiEnabledField.setTextColor(INK); settingsAiEnabledField.setChecked(TodoStore.aiEnabled(this));
+        content.addView(settingsAiEnabledField);
+        settingsAiConsentField = new CheckBox(this); settingsAiConsentField.setText("我同意将选中群通知正文和该群未完成事项摘要脱敏后发送到上方模型 API 分析");
+        settingsAiConsentField.setTextSize(14); settingsAiConsentField.setTextColor(INK); settingsAiConsentField.setChecked(TodoStore.aiConsent(this));
+        content.addView(settingsAiConsentField);
+        settingsTestApiButton = button("测试 API 连接", Color.WHITE, BLUE);
+        settingsTestApiButton.setOnClickListener(v -> testAiApi());
+        content.addView(settingsTestApiButton, margin(0, dp(3), 0, dp(12)));
+        clearApiKey = false;
+
         section("最近通知诊断");
-        TextView diagnosticStatus = text(TodoStore.lastDiagnostic(this), 13, INK, false);
+        TextView diagnosticStatus = text(TodoStore.lastDiagnostic(this), 14, INK, false);
         diagnosticStatus.setPadding(dp(12), dp(12), dp(12), dp(12));
         diagnosticStatus.setBackground(shape(Color.WHITE, dp(13), Color.rgb(229, 231, 236)));
         diagnosticStatus.setClickable(true);
         diagnosticStatus.setFocusable(true);
         diagnosticStatus.setOnClickListener(v -> showDiagnosticHistory());
         content.addView(diagnosticStatus, margin(0, 0, 0, dp(6)));
-        TextView diagnosticHint = text("点诊断卡片查看全部处理结果并复制；仅保存步骤和关键词命中，不保存群消息正文。", 11, MUTED, false);
+        TextView diagnosticHint = text("点诊断卡片查看并复制处理记录；只记录步骤、筛选依据、API 成功或失败及回退状态，不记录通知正文或 API Key。", 14, MUTED, false);
         content.addView(diagnosticHint, margin(dp(3), 0, dp(3), dp(5)));
         Button refreshDiagnostic = button("刷新最近通知状态", Color.WHITE, BLUE);
         refreshDiagnostic.setOnClickListener(v -> diagnosticStatus.setText(TodoStore.lastDiagnostic(this)));
         content.addView(refreshDiagnostic, margin(0, 0, 0, dp(8)));
 
         section("识别关键词");
-        TextView keywordHelp = text("范围词用于识别面向家长或全班的消息；任务词用于判断消息是否像待办。也可命中孩子姓名。用逗号或换行分隔。词越宽泛，误识别可能越多。", 12, MUTED, false);
+        TextView keywordHelp = text("范围词用于识别面向家长或全班的消息；任务词用于判断消息是否像待办。也可命中孩子姓名。用逗号或换行分隔。词越宽泛，误识别可能越多。", 14, MUTED, false);
         keywordHelp.setPadding(dp(3), 0, dp(3), dp(9)); content.addView(keywordHelp);
         settingsScopeKeywordsField = input("例如：各位家长、家长们、@所有人", TodoStore.scopeKeywords(this));
         settingsScopeKeywordsField.setSingleLine(false); settingsScopeKeywordsField.setMinLines(3); settingsScopeKeywordsField.setMaxLines(6);
@@ -486,9 +743,33 @@ public class MainActivity extends Activity {
         });
         content.addView(resetKeywords, margin(0, 0, 0, dp(10)));
 
-        TextView pilot = text("家长端本地清单\n待办与完成历史会保留在本机，直到手动移除。当前版本不会在家长之间转发任务。", 12, MUTED, false);
-        content.addView(pilot);
-        configureSingleAction(android.R.drawable.ic_menu_save, "保存并返回", this::saveSettingsAndReturn);
+        section("功能与隐私");
+        String versionName;
+        try { versionName = getPackageManager().getPackageInfo(getPackageName(), 0).versionName; }
+        catch (PackageManager.NameNotFoundException ignored) { versionName = "?"; }
+        TextView about = text("功能：读取微信群通知，按群合并整理为通知、任务、作业和打卡；学习作业可拆成多项逐项勾选。清单和完成状态保存在本机。"
+                + "\n\nAPI：可不填。留空时用本地规则；启用模型并明确同意后，才会将选中群通知正文与相关待办摘要发送到你配置的 HTTPS API；发送前会脱敏孩子姓名，API Key 加密保存在本机。"
+                + "\n\n隐私：照片 OCR 在本机完成，不上传图片；诊断记录不保存通知正文和 API Key。可随时关闭模型识别或撤销通知访问。", 14, MUTED, false);
+        about.setPadding(dp(12), dp(12), dp(12), dp(12));
+        about.setBackground(shape(Color.WHITE, dp(13), Color.rgb(229, 231, 236)));
+        content.addView(about, margin(0, 0, 0, dp(8)));
+        section("版本信息");
+        TextView version = text("当前版本  " + versionName, 14, MUTED, false);
+        version.setPadding(dp(12), dp(12), dp(12), dp(12));
+        version.setBackground(shape(Color.WHITE, dp(13), Color.rgb(229, 231, 236)));
+        content.addView(version, margin(0, 0, 0, dp(8)));
+
+        settingsChildField.addTextChangedListener(settingsWatcher());
+        settingsGroupField.addTextChangedListener(settingsWatcher());
+        settingsScopeKeywordsField.addTextChangedListener(settingsWatcher());
+        settingsTaskKeywordsField.addTextChangedListener(settingsWatcher());
+        settingsApiUrlField.addTextChangedListener(settingsWatcher());
+        settingsAiModelField.addTextChangedListener(settingsWatcher());
+        settingsApiKeyField.addTextChangedListener(settingsWatcher());
+        settingsAiEnabledField.setOnCheckedChangeListener((button, checked) -> scheduleSettingsAutosave());
+        settingsAiConsentField.setOnCheckedChangeListener((button, checked) -> scheduleSettingsAutosave());
+        clearApiKey = false;
+        configureSettingsActions();
     }
 
     private void showDiagnosticHistory() {
@@ -515,17 +796,67 @@ public class MainActivity extends Activity {
         dialog.show();
     }
 
-    private void saveSettingsAndReturn() {
-        if (settingsChildField == null || settingsGroupField == null || settingsScopeKeywordsField == null || settingsTaskKeywordsField == null) return;
-        TodoStore.saveSetup(this, settingsChildField.getText().toString(), settingsGroupField.getText().toString());
-        TodoStore.saveKeywordSettings(this, settingsScopeKeywordsField.getText().toString(), settingsTaskKeywordsField.getText().toString());
-        ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(settingsGroupField.getWindowToken(), 0);
-        settingsChildField = null; settingsGroupField = null; settingsScopeKeywordsField = null; settingsTaskKeywordsField = null;
-        renderHome();
+    private TextWatcher settingsWatcher() {
+        return new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { scheduleSettingsAutosave(); }
+            @Override public void afterTextChanged(Editable s) { }
+        };
+    }
+
+    private void scheduleSettingsAutosave() {
+        if (!settingsPage || settingsSaveStatus == null) return;
+        settingsSaveStatus.setText("有更改，正在自动保存…");
+        settingsSaveStatus.setTextColor(MUTED);
+        settingsSaveStatus.setOnClickListener(null);
+        settingsSaveHandler.removeCallbacks(settingsAutosave);
+        settingsSaveHandler.postDelayed(settingsAutosave, 650L);
+    }
+
+    private void persistSettings() {
+        if (!settingsPage || settingsChildField == null || settingsGroupField == null
+                || settingsScopeKeywordsField == null || settingsTaskKeywordsField == null
+                || settingsApiUrlField == null || settingsAiModelField == null || settingsApiKeyField == null
+                || settingsAiEnabledField == null || settingsAiConsentField == null) return;
+        settingsSaveHandler.removeCallbacks(settingsAutosave);
+        try {
+            TodoStore.saveSetup(this, settingsChildField.getText().toString(), settingsGroupField.getText().toString());
+            TodoStore.saveKeywordSettings(this, settingsScopeKeywordsField.getText().toString(), settingsTaskKeywordsField.getText().toString());
+            TodoStore.saveAiSettings(this, settingsApiUrlField.getText().toString(), settingsAiModelField.getText().toString(),
+                    settingsApiKeyField.getText().toString(), settingsAiEnabledField.isChecked(), settingsAiConsentField.isChecked(), clearApiKey);
+            clearApiKey = false;
+            if (settingsSaveStatus != null) {
+                settingsSaveStatus.setText("已自动保存");
+                settingsSaveStatus.setTextColor(Color.rgb(43, 126, 94));
+                settingsSaveStatus.setOnClickListener(null);
+            }
+        } catch (RuntimeException error) {
+            if (settingsSaveStatus != null) {
+                settingsSaveStatus.setText("保存失败，点按重试");
+                settingsSaveStatus.setTextColor(Color.rgb(188, 64, 55));
+                settingsSaveStatus.setOnClickListener(v -> persistSettings());
+            }
+        }
+    }
+
+    private void testAiApi() {
+        persistSettings();
+        String url=settingsApiUrlField.getText().toString().trim(), model=settingsAiModelField.getText().toString().trim();
+        String key=settingsApiKeyField.getText().toString().trim(); if(key.isEmpty())key=TodoStore.aiKey(this);
+        settingsTestApiButton.setText("正在测试…"); settingsTestApiButton.setEnabled(false);
+        final String testKey=key;
+        new Thread(() -> {
+            String result;
+            try { result=AiTaskAnalyzer.test(this,url,model,testKey); }
+            catch(Exception e){ result="连接失败："+(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage()); }
+            final String message=result;
+            runOnUiThread(() -> { if(settingsTestApiButton!=null){settingsTestApiButton.setText("测试 API 连接");settingsTestApiButton.setEnabled(true);} new AlertDialog.Builder(this).setTitle("模型 API 测试").setMessage(message).setPositiveButton("知道了",null).show(); });
+        }).start();
     }
 
     private void renderManualForm() {
-        settingsPage = false; manualPage = true; content.removeAllViews();
+        settingsPage = false; manualPage = true; renderMainEntryBar(); content.removeAllViews();
+        content.setPadding(dp(18), dp(8), dp(18), dp(172));
         updateSyncStatus();
         if (manualAssignedAt == 0) manualAssignedAt = System.currentTimeMillis();
         section("手动补充待办");
@@ -534,16 +865,27 @@ public class MainActivity extends Activity {
         manualTitleField.setSingleLine(false); manualTitleField.setMinLines(2); manualTitleField.setMaxLines(4);
         manualTitleField.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE | android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         content.addView(formRow("待办任务：", manualTitleField), margin(0, 0, 0, dp(12)));
+        manualTypeValue = formValue(manualTypeLabel());
+        manualTypeValue.setOnClickListener(v -> showManualTypePicker());
+        content.addView(formRow("\u4e8b\u9879\u7c7b\u578b\uff1a", manualTypeValue), margin(0, 0, 0, dp(12)));
+
+        LinearLayout capture = new LinearLayout(this); capture.setOrientation(LinearLayout.HORIZONTAL);
+        Button photo = button("拍照识别文字", Color.WHITE, BLUE); photo.setOnClickListener(v -> capturePhoto());
+        Button voice = button("语音输入", Color.WHITE, BLUE); voice.setOnClickListener(v -> captureVoice());
+        capture.addView(photo, new LinearLayout.LayoutParams(0, dp(48), 1));
+        capture.addView(voice, new LinearLayout.LayoutParams(0, dp(48), 1));
+        content.addView(capture, margin(0, dp(-4), 0, dp(12)));
 
         manualAssignedValue = formValue(formatDate(manualAssignedAt));
         manualAssignedValue.setOnClickListener(v -> showDateTimePicker(true));
         content.addView(formRow("布置日期：", manualAssignedValue), margin(0, 0, 0, dp(12)));
 
-        manualDueValue = formValue(manualDueAt > 0 ? formatDate(manualDueAt) : "点击选择日期和时间");
+        manualDueValue = formValue(manualDueAt > 0 ? formatDate(manualDueAt) : "作业自动计算；点此手动选择");
         manualDueValue.setOnClickListener(v -> showDateTimePicker(false));
         content.addView(formRow("完成日期：", manualDueValue), margin(0, 0, 0, dp(12)));
 
-        manualAssignerValue = formValue(manualAssigner.isEmpty() ? "选择布置人" : manualAssigner);
+        if (manualAssigner.isEmpty()) manualAssigner = "爸爸";
+        manualAssignerValue = formValue(manualAssigner);
         manualAssignerValue.setOnClickListener(v -> showAssignerPicker());
         content.addView(formRow("布置人：", manualAssignerValue), margin(0, 0, 0, dp(14)));
 
@@ -561,11 +903,36 @@ public class MainActivity extends Activity {
     }
 
     private TextView formValue(String value) {
-        TextView field = text(value, 15, value.equals("选择布置人") || value.equals("点击选择日期和时间") ? MUTED : INK, false);
+        TextView field = text(value, 15, value.equals("选择布置人") || value.equals("点击选择日期和时间") || value.startsWith("作业自动计算") ? MUTED : INK, false);
         field.setPadding(dp(13), dp(13), dp(13), dp(13));
         field.setBackground(shape(Color.WHITE, dp(13), Color.rgb(229, 231, 236)));
         field.setMinHeight(dp(48));
         return field;
+    }
+
+    private String manualTypeLabel() {
+        if ("notice".equals(manualType)) return "\u901a\u77e5";
+        if ("homework".equals(manualType)) return "\u4f5c\u4e1a";
+        if ("checkin".equals(manualType)) return "\u6253\u5361";
+        return "\u4efb\u52a1";
+    }
+
+    private void showManualTypePicker() {
+        String[] labels = {"\u901a\u77e5", "\u4efb\u52a1", "\u4f5c\u4e1a", "\u6253\u5361"};
+        String[] values = {"notice", "task", "homework", "checkin"};
+        int selected = "notice".equals(manualType) ? 0 : "homework".equals(manualType) ? 2 : "checkin".equals(manualType) ? 3 : 1;
+        new AlertDialog.Builder(this).setTitle("\u9009\u62e9\u4e8b\u9879\u7c7b\u578b")
+                .setSingleChoiceItems(labels, selected, (dialog, which) -> {
+                    manualType = values[which];
+                    manualTypeValue.setText(labels[which]);
+                    if (manualDueAt <= 0) {
+                        manualDueValue.setText("homework".equals(manualType)
+                                ? "\u4f5c\u4e1a\u622a\u6b62\u65f6\u95f4\u81ea\u52a8\u8ba1\u7b97\uff0c\u70b9\u51fb\u53ef\u4fee\u6539"
+                                : "\u70b9\u51fb\u9009\u62e9\u5b8c\u6210\u65f6\u95f4");
+                        manualDueValue.setTextColor(MUTED);
+                    }
+                    dialog.dismiss();
+                }).setNegativeButton("\u53d6\u6d88", null).show();
     }
 
     private void showDateTimePicker(boolean assignmentDate) {
@@ -653,37 +1020,100 @@ public class MainActivity extends Activity {
 
     private void saveManualTask() {
         String title = manualTitleField == null ? "" : manualTitleField.getText().toString().trim();
-        if (title.isEmpty()) { android.widget.Toast.makeText(this, "请填写待办任务", android.widget.Toast.LENGTH_SHORT).show(); return; }
-        if (manualDueAt <= 0) { android.widget.Toast.makeText(this, "请选择完成日期", android.widget.Toast.LENGTH_SHORT).show(); return; }
-        if (manualAssigner.isEmpty()) { android.widget.Toast.makeText(this, "请选择并填写布置人", android.widget.Toast.LENGTH_SHORT).show(); return; }
-        boolean added = TodoStore.addAt(this, title, formatDate(manualDueAt), manualAssigner, "", manualAssignedAt);
-        if (!added) android.widget.Toast.makeText(this, "这项待办似乎已在清单中", android.widget.Toast.LENGTH_SHORT).show();
-        else android.widget.Toast.makeText(this, "待办已添加", android.widget.Toast.LENGTH_SHORT).show();
-        manualTitleField = null; manualDueAt = 0; manualAssigner = ""; manualAssignedAt = 0;
+        if (title.isEmpty()) { android.widget.Toast.makeText(this, "\u8bf7\u586b\u5199\u5185\u5bb9", android.widget.Toast.LENGTH_SHORT).show(); return; }
+        if (manualAssigner.isEmpty()) manualAssigner = "\u7238\u7238";
+        boolean homework = "homework".equals(manualType);
+        boolean notice = "notice".equals(manualType);
+        boolean checkin = "checkin".equals(manualType);
+        if (manualDueAt <= 0 && !notice) {
+            DeadlineRules.Result automatic = DeadlineRules.resolve(title, "", manualAssignedAt > 0 ? manualAssignedAt : System.currentTimeMillis(), homework);
+            if (automatic.at > 0) manualDueAt = automatic.at;
+            else { android.widget.Toast.makeText(this, "\u8bf7\u4e3a\u8fd9\u9879\u4efb\u52a1\u9009\u62e9\u5b8c\u6210\u65f6\u95f4", android.widget.Toast.LENGTH_SHORT).show(); return; }
+        }
+        String due = manualDueAt > 0 ? formatDate(manualDueAt) : "\u672a\u6ce8\u660e\u65f6\u95f4";
+        org.json.JSONArray checklist = new org.json.JSONArray();
+        if (homework) checklist.put(title);
+        String category = notice ? TodoItem.CATEGORY_NOTICE : checkin ? TodoItem.CATEGORY_CHECKIN : TodoItem.CATEGORY_TASK;
+        int result = TodoStore.addStructured(this, title, due, manualDueAt, manualAssigner, "", category, "",
+                "", "", title, homework, checklist);
+        if (result == 0) android.widget.Toast.makeText(this, "\u8fd9\u9879\u5185\u5bb9\u4f3c\u4e4e\u5df2\u5728\u6e05\u5355\u4e2d", android.widget.Toast.LENGTH_SHORT).show();
+        else android.widget.Toast.makeText(this, "\u5df2\u6dfb\u52a0", android.widget.Toast.LENGTH_SHORT).show();
+        manualTitleField = null; manualTypeValue = null; manualType = "task";
+        manualDueAt = 0; manualAssigner = ""; manualAssignedAt = 0;
         renderHome();
     }
 
     private void configureHomeActions() {
-        bottomActions.removeAllViews(); bottomActions.setVisibility(View.VISIBLE);
-        LinearLayout.LayoutParams settings = new LinearLayout.LayoutParams(0, dp(54), 1); settings.setMargins(0, 0, dp(16), 0);
-        LinearLayout.LayoutParams manual = new LinearLayout.LayoutParams(0, dp(54), 1);
-        bottomActions.addView(actionTile(android.R.drawable.ic_menu_manage, "同步设置", this::renderSettings), settings);
-        bottomActions.addView(actionTile(android.R.drawable.ic_input_add, "手动补充", () -> {
-            manualAssignedAt = System.currentTimeMillis(); manualDueAt = 0; manualAssigner = ""; renderManualForm();
-        }), manual);
+        bottomActions.removeAllViews();
+        bottomActions.setVisibility(View.GONE);
     }
 
     private void configureCategoryActions() { configureHomeActions(); }
 
+    private void configureSettingsActions() { configureHomeActions(); }
+
+    private void openManualSupplement() {
+        manualAssignedAt = System.currentTimeMillis();
+        manualDueAt = 0;
+        manualAssigner = "";
+        manualType = "task";
+        renderManualForm();
+    }
+
     private void configureSingleAction(int icon, String label, Runnable action) {
         bottomActions.removeAllViews(); bottomActions.setVisibility(View.VISIBLE);
+        bottomActions.setOrientation(LinearLayout.HORIZONTAL); bottomActions.setPadding(dp(16), dp(8), dp(16), dp(12));
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) bottomActions.getLayoutParams();
+        params.width = -1; params.height = -2; params.gravity = Gravity.BOTTOM; params.setMargins(0, 0, 0, 0); bottomActions.setLayoutParams(params);
         bottomActions.addView(actionTile(icon, label, action), new LinearLayout.LayoutParams(-1, dp(64)));
     }
 
     private void configureManualActions() {
         bottomActions.removeAllViews(); bottomActions.setVisibility(View.VISIBLE);
+        bottomActions.setOrientation(LinearLayout.HORIZONTAL); bottomActions.setPadding(dp(16), dp(8), dp(16), dp(12));
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) bottomActions.getLayoutParams();
+        params.width = -1; params.height = -2; params.gravity = Gravity.BOTTOM; params.setMargins(0, 0, 0, dp(60)); bottomActions.setLayoutParams(params);
         bottomActions.addView(actionTile(android.R.drawable.ic_menu_save, "保存待办", this::saveManualTask), new LinearLayout.LayoutParams(0, dp(64), 1));
         bottomActions.addView(actionTile(android.R.drawable.ic_menu_close_clear_cancel, "取消", this::renderHome), new LinearLayout.LayoutParams(0, dp(64), 1));
+    }
+
+    private void capturePhoto() {
+        Intent intent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+        try { startActivityForResult(intent, REQUEST_CAMERA_TEXT); }
+        catch (ActivityNotFoundException e) { android.widget.Toast.makeText(this, "没有可用的相机应用", android.widget.Toast.LENGTH_SHORT).show(); }
+    }
+
+    private void captureVoice() {
+        Intent intent = new Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "zh-CN");
+        intent.putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "说出要补充的待办");
+        try { startActivityForResult(intent, REQUEST_VOICE_TEXT); }
+        catch (ActivityNotFoundException e) { android.widget.Toast.makeText(this, "此手机没有可用的语音识别服务", android.widget.Toast.LENGTH_SHORT).show(); }
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode != RESULT_OK || data == null || manualTitleField == null) return;
+        if (requestCode == REQUEST_VOICE_TEXT) {
+            ArrayList<String> results=data.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS);
+            if(results!=null&&!results.isEmpty()) appendCapturedText(results.get(0), "语音转写结果");
+        } else if(requestCode == REQUEST_CAMERA_TEXT) {
+            android.os.Bundle extras=data.getExtras();
+            android.graphics.Bitmap bitmap=extras==null?null:(android.graphics.Bitmap)extras.get("data");
+            if(bitmap==null){android.widget.Toast.makeText(this,"相机没有返回照片，请重试",android.widget.Toast.LENGTH_SHORT).show();return;}
+            TextRecognition.getClient(new ChineseTextRecognizerOptions.Builder().build())
+                    .process(InputImage.fromBitmap(bitmap,0))
+                    .addOnSuccessListener(result->{String recognized=result.getText(); if(recognized==null||recognized.trim().isEmpty())android.widget.Toast.makeText(this,"照片中没有识别到文字",android.widget.Toast.LENGTH_SHORT).show();else appendCapturedText(recognized,"照片文字识别");})
+                    .addOnFailureListener(error->android.widget.Toast.makeText(this,"照片识别失败，请手动输入",android.widget.Toast.LENGTH_SHORT).show());
+        }
+    }
+
+    private void appendCapturedText(String captured, String title) {
+        EditText review=input("确认并可编辑识别出的文字",captured);
+        review.setSingleLine(false);review.setMinLines(3);review.setGravity(Gravity.TOP|Gravity.START);
+        new AlertDialog.Builder(this).setTitle(title).setView(review).setNegativeButton("取消",null)
+                .setPositiveButton("填入任务",(d,w)->{String text=review.getText().toString().trim();if(!text.isEmpty()){String old=manualTitleField.getText().toString().trim();manualTitleField.setText(old.isEmpty()?text:old+"\n"+text);}}).show();
     }
 
     private View actionTile(int iconResource, String label, Runnable action) {
@@ -698,10 +1128,23 @@ public class MainActivity extends Activity {
         return tile;
     }
 
+    private View actionFab(int iconResource, String label, Runnable action) {
+        FrameLayout button = new FrameLayout(this);
+        GradientDrawable surface = new GradientDrawable(); surface.setShape(GradientDrawable.OVAL); surface.setColor(0xDFFFFFFF);
+        GradientDrawable mask = new GradientDrawable(); mask.setShape(GradientDrawable.OVAL); mask.setColor(Color.WHITE);
+        button.setBackground(new android.graphics.drawable.RippleDrawable(ColorStateList.valueOf(0x337096A1), surface, mask));
+        button.setElevation(dp(5)); button.setClickable(true); button.setFocusable(true);
+        button.setContentDescription(label); button.setTooltipText(label);
+        ImageView icon = new ImageView(this); icon.setImageResource(iconResource); icon.setColorFilter(BLUE); icon.setContentDescription(null);
+        button.addView(icon, new FrameLayout.LayoutParams(dp(27), dp(27), Gravity.CENTER));
+        button.setOnClickListener(v -> action.run());
+        return button;
+    }
+
     private void enableNotificationAccess() {
         new AlertDialog.Builder(this)
                 .setTitle("开启消息整理")
-                .setMessage("允许后，应用会筛选微信中匹配所选群名的可见通知，在本机整理成待办。安卓还会单独询问是否允许本机提醒；即使拒绝提醒，清单仍可查看。群聊内容不会上传。")
+                .setMessage("允许后，应用会筛选微信中匹配已设置群聊之一的可见通知。不开启模型时本机按关键词整理；开启并同意模型 API 后，匹配群聊通知正文及该群未完成事项摘要会先将孩子姓名替换为“孩子”，再发送到你配置的模型服务分析。")
                 .setNegativeButton("暂不", null)
                 .setNeutralButton("只开启读取", (d, w) -> openListenerSettings())
                 .setPositiveButton("继续", (d, w) -> {
@@ -714,7 +1157,8 @@ public class MainActivity extends Activity {
     private void openListenerSettings() { startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)); }
 
     @Override public void onBackPressed() {
-        if (settingsPage || manualPage || !activeCategory.isEmpty()) renderHome();
+        if (settingsPage) { persistSettings(); renderHome(); }
+        else if (manualPage || !activeCategory.isEmpty()) renderHome();
         else super.onBackPressed();
     }
 
@@ -724,27 +1168,44 @@ public class MainActivity extends Activity {
     }
 
     private void showDetail(TodoItem item) {
+        boolean overdue = !item.done && item.dueAt > 0 && item.dueAt < System.currentTimeMillis();
         String info = "布置日期：" + formatDate(item.createdAt) + "\n完成日期：" + (item.due.isEmpty() ? "未填写" : item.due)
                 + "\n布置人：" + item.sender + "\n状态：" + (item.done ? "已完成" : "待完成")
+                + (overdue ? "（超时）" : item.overdueDeferred && !item.done ? "（已手动延时）" : "")
                 + (item.done ? "\n实际完成：" + (item.completedAt > 0 ? formatDate(item.completedAt) : "历史未记录") : "")
+                + (item.summary == null || item.summary.isEmpty() ? "" : "\n\n整理说明（AI归纳）：\n" + item.summary)
                 + "\n\n原通知摘录（仅保存在本机）：\n" + (item.source.isEmpty() ? "家长手动补充" : item.source);
         AlertDialog.Builder dialog = new AlertDialog.Builder(this).setTitle(item.title).setMessage(info)
                 .setNeutralButton("移除此项", (d, w) -> new AlertDialog.Builder(this).setMessage("从本机清单和完成历史中移除此项？").setNegativeButton("取消", null).setPositiveButton("移除", (x, y) -> { TodoStore.remove(this, item.id); renderHome(); }).show())
                 .setNegativeButton("关闭", null);
+        if (!item.done && item.dueAt > 0 && item.dueAt < System.currentTimeMillis()) {
+            dialog.setPositiveButton("手动延时", (d, w) -> showDeferChoices(item));
+        }
         dialog.show();
     }
 
+    private void showDeferChoices(TodoItem item) {
+        String[] choices={"延后 1 天", "延后 3 天", "延后 7 天"};
+        new AlertDialog.Builder(this).setTitle("选择新的完成日期").setItems(choices,(d,which)->{
+            Calendar due=Calendar.getInstance();due.setTimeInMillis(Math.max(item.dueAt,System.currentTimeMillis()));
+            due.add(Calendar.DAY_OF_YEAR,which==0?1:(which==1?3:7));
+            TodoStore.defer(this,item.id,due.getTimeInMillis());
+            renderHome();
+            android.widget.Toast.makeText(this,"已按你的选择延时；不会自动顺延",android.widget.Toast.LENGTH_SHORT).show();
+        }).show();
+    }
+
     private void section(String name) {
-        TextView t = text(name, 14, MUTED, true); t.setPadding(dp(4), dp(12), 0, dp(8)); content.addView(t);
+        TextView t = text(name, 16, INK, true); t.setPadding(dp(4), dp(14), 0, dp(8)); content.addView(t);
     }
 
     private EditText input(String hint, String value) {
-        EditText e = new EditText(this); e.setSingleLine(true); e.setTextSize(15); e.setTextColor(INK); e.setHintTextColor(MUTED); e.setHint(hint); e.setText(value); e.setPadding(dp(13), dp(9), dp(13), dp(9));
+        EditText e = new EditText(this); e.setSingleLine(true); e.setTextSize(16); e.setTextColor(INK); e.setHintTextColor(MUTED); e.setHint(hint); e.setText(value); e.setPadding(dp(13), dp(9), dp(13), dp(9));
         e.setBackground(shape(Color.WHITE, dp(13), Color.rgb(229, 231, 236))); return e;
     }
 
     private View cardField(String label, EditText input) {
-        LinearLayout c = card(); c.setOrientation(LinearLayout.VERTICAL); c.addView(text(label, 12, MUTED, false)); c.addView(input, margin(0, dp(7), 0, 0)); return c;
+        LinearLayout c = card(); c.setOrientation(LinearLayout.VERTICAL); c.addView(text(label, 14, INK, true)); c.addView(input, margin(0, dp(7), 0, 0)); return c;
     }
 
     private LinearLayout card() {

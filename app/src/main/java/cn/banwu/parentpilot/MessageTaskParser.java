@@ -15,10 +15,10 @@ public final class MessageTaskParser {
     private static final String DEFAULT_SCOPE = "家长,家长们,亲爱的家长,亲爱的家长们,各位家长,各位家长们,全体家长,请家长,@所有人,@全体成员,@全体家长,@全体同学,全体同学,同学们,各位同学,全班同学,全班,班级统一,孩子们,小朋友们";
     private static final String DEFAULT_TASK = "作业,练习,试卷,卷子,考试,测验,听写,默写,背诵,朗读,阅读,抄写,订正,预习,复习,生字,课文,绘画,画画,手工,答题,做题,提交,上交,上传,补交,补做,填写,填报,签字,签署,签名,回执,回复,确认,反馈,报数,接龙,打卡,缴费,报名,申请书,请假条,带回,带去,带好,带上,带来,准备好,穿校服,领取,归还,收集,统计,检查,请假";
     private static final String[] OPTIONAL = {"自愿", "有意向", "感兴趣", "有兴趣", "不参加可忽略", "不参加请忽略", "不参加也没关系", "可选报名"};
-    private static final String[] REPLY = {"回复", "接龙", "确认", "反馈", "报数", "回执", "打卡"};
+    private static final String[] RECURRING_CHECKIN = {"每日打卡", "每天打卡", "每周打卡", "连续打卡", "坚持打卡", "每日签到", "每天签到", "每周签到", "连续签到"};
     private static final String[] CHATTER = {"收到", "好的", "好嘞", "谢谢", "辛苦了", "哈哈", "😂", "👍", "收到，谢谢", "好的谢谢", "没事", "不好意思", "太棒了"};
     private static final String[] GENERIC_ACTION = {"请", "提醒", "需要", "记得", "完成"};
-    private static final String[] ACTION_CUES = {"交回", "带回", "带去", "带好", "带上", "带来", "放在家里", "督促孩子", "接送", "穿校服", "准备好", "提交", "上交", "缴费", "报名", "接龙", "填报", "填写", "签字", "签署", "归还", "领取", "收集", "补交", "补做", "写完", "抄写", "订正", "朗读", "背诵", "默写", "听写", "练习", "交作业", "做作业", "做题", "打卡", "请假"};
+    private static final String[] ACTION_CUES = {"交回", "带回", "带去", "带好", "带上", "带来", "放在家里", "督促孩子", "接送", "穿校服", "准备好", "提交", "上交", "缴费", "报名", "接龙", "填报", "填写", "签字", "签署", "归还", "领取", "收集", "补交", "补做", "写完", "抄写", "订正", "朗读", "背诵", "默写", "听写", "练习", "交作业", "做作业", "做题", "打卡", "签到", "请假"};
     private static final String[] NOTICE_CUES = {"温馨提示", "温馨提醒", "家长会", "时间调整", "接送", "放学", "开学", "停课", "调课", "天气", "安全", "活动安排", "课程安排", "放假", "返校", "请阅读", "请查收", "通知书", "地点", "安排", "会议", "公告", "重要提醒", "校服"};
     private static final String[] FORMAL_NOTICE_CUES = {"通知如下", "请知悉", "特此通知", "学校通知", "转发通知", "以下通知"};
 
@@ -50,9 +50,8 @@ public final class MessageTaskParser {
         if (!action && !notice) return null;
         if (!action && containsAny(text, CHATTER) && !containsAny(text, NOTICE_CUES)) return null;
         String category;
-        if (containsAny(text, OPTIONAL)) category = TodoItem.CATEGORY_OPTIONAL;
-        else if (containsAny(text, REPLY)) category = TodoItem.CATEGORY_REPLY;
-        else if (action) category = TodoItem.CATEGORY_TODO;
+        if (action && containsAny(text, RECURRING_CHECKIN)) category = TodoItem.CATEGORY_CHECKIN;
+        else if (action) category = TodoItem.CATEGORY_TASK;
         else if (notice) category = TodoItem.CATEGORY_NOTICE;
         else return null;
 
@@ -61,7 +60,7 @@ public final class MessageTaskParser {
         if (text.contains("@") && !childNamed && !addressedAll) return null;
 
         String title;
-        if (TodoItem.CATEGORY_NOTICE.equals(category) || TodoItem.CATEGORY_OPTIONAL.equals(category)) {
+        if (TodoItem.CATEGORY_NOTICE.equals(category)) {
             title = text;
         } else {
             title = firstActionClause(text, taskWords);

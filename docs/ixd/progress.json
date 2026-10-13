@@ -1,0 +1,60 @@
+{
+    "product":  "班务清单 Android 试点增强版",
+    "platform":  "mobile",
+    "language":  "zh",
+    "phases":  {
+                   "1":  {
+                             "status":  "done",
+                             "file":  "phase1-context.md",
+                             "summary":  "单班安卓家长端；可选 BYOK 模型与本机规则；拍照/语音补录；待确认截止边界和隐私说明。"
+                         },
+                   "2":  {
+                             "status":  "done",
+                             "file":  "phase2-architecture.md",
+                             "summary":  "9 个页面/面板；首页保留原入口；新增模型设置、拍照 OCR、语音转写、诊断和详情。"
+                         },
+                   "3":  {
+                             "status":  "done",
+                             "file":  "phase3-userflows.md",
+                             "summary":  "通知模型/规则双路径；截止优先级、语义合并、相机与语音补录、状态及失败流程已梳理。"
+                         },
+                   "4":  {
+                             "status":  "in_progress",
+                             "file":  "phase4-page-specs/P01-home-widget-settings-review.md",
+                             "summary":  "首页四入口、小部件只显示未完成事项且隐藏群名、设置统一层级与自动保存的页面方案已按用户确认实现；其余页面规格待后续梳理。",
+                             "pagesCompleted":  [
+                                                    "P01 首页与小部件",
+                                                    "P02 手动补充入口",
+                                                    "P06 设置"
+                                                ],
+                             "pagesTotal":  9
+                         },
+                   "5":  {
+                             "status":  "pending",
+                             "file":  null,
+                             "summary":  null
+                         },
+                   "6":  {
+                             "status":  "pending",
+                             "file":  null,
+                             "summary":  null
+                         },
+                   "7":  {
+                             "status":  "pending",
+                             "file":  null,
+                             "summary":  null,
+                             "pagesCompleted":  [
+
+                                                ],
+                             "pagesTotal":  9
+                         },
+                   "8":  {
+                             "status":  "pending",
+                             "file":  null,
+                             "summary":  null,
+                             "reviewRounds":  0,
+                             "reviewResult":  null
+                         }
+               },
+    "lastUpdated":  "2026-10-13T11:45:00+08:00"
+}

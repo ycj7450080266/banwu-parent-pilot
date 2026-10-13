@@ -12,3 +12,13 @@ Thumbs.db
 
 # WeChat Developer Tools private project settings can contain account data.
 **/project.private.config.json
+
+# Temporary local build SDK and homes used only to generate this trial APK.
+.sdk-for-build/
+.android-user/
+.build-home/
+
+# Personal screenshots and Android signing sidecars are local-only.
+/*.jpg
+/*.idsig
+/.codex-weekday.py

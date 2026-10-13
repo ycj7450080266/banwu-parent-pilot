@@ -1,8 +1,11 @@
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="240dp"
-    android:minHeight="234dp"
+    android:minWidth="180dp"
+    android:minHeight="160dp"
+    android:minResizeWidth="150dp"
+    android:minResizeHeight="120dp"
     android:updatePeriodMillis="0"
     android:initialLayout="@layout/todo_widget"
     android:resizeMode="horizontal|vertical"
+    android:previewImage="@mipmap/ic_launcher"
     android:description="@string/widget_description"
     android:widgetCategory="home_screen" />
