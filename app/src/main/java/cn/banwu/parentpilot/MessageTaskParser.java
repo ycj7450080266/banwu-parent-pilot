@@ -39,7 +39,7 @@ public final class MessageTaskParser {
         boolean childNamed = childName != null && !childName.trim().isEmpty() && text.contains(childName.trim());
         boolean addressedAll = text.contains("@所有人") || text.contains("@全体成员") || containsAny(text, scopeWords);
         // A notification explicitly aimed at another family should not leak into this child's list.
-        if (text.contains("@") && !childNamed && !text.contains("@所有人") && !text.contains("@全体成员")) return null;
+        if (isExplicitlyDirectedToOtherFamily(text, childName, scopeText)) return null;
 
         String[] concreteWords = java.util.Arrays.stream(taskWords)
                 .filter(word -> !java.util.Arrays.asList(GENERIC_ACTION).contains(word))
@@ -55,10 +55,6 @@ public final class MessageTaskParser {
         else if (notice) category = TodoItem.CATEGORY_NOTICE;
         else return null;
 
-        // Non-personal action messages posted in this already-selected class group are class items.
-        // Keep the range check for individual mentions; group-wide cues remain explicit evidence.
-        if (text.contains("@") && !childNamed && !addressedAll) return null;
-
         String title;
         if (TodoItem.CATEGORY_NOTICE.equals(category)) {
             title = text;
@@ -72,6 +68,17 @@ public final class MessageTaskParser {
         }
         if (title.length() > 88) title = title.substring(0, 88) + "…";
         return new Candidate(title, findDue(text), category);
+    }
+
+    /** Filters direct mentions to another family before local or AI analysis. */
+    public static boolean isExplicitlyDirectedToOtherFamily(String raw, String childName, String scopeText) {
+        if (raw == null) return false;
+        String text = raw.replace('\n', ' ').replace('\r', ' ').replaceAll("\\s+", " ").trim();
+        if (!text.contains("@")) return false;
+        boolean childNamed = childName != null && !childName.trim().isEmpty() && text.contains(childName.trim());
+        boolean broadcast = text.contains("@所有人") || text.contains("@全体成员")
+                || containsAny(text, splitKeywords(scopeText));
+        return !childNamed && !broadcast;
     }
 
     /** Returns keyword-match evidence without including the notification body itself. */

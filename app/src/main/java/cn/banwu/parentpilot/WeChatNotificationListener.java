@@ -172,6 +172,10 @@ public class WeChatNotificationListener extends NotificationListenerService {
                 body = body.substring(separator + 1).trim();
             }
         }
+        if (MessageTaskParser.isExplicitlyDirectedToOtherFamily(body, child, scopeKeywords)) {
+            TodoStore.recordDiagnostic(this, "消息明确@其他家长且未提及当前孩子或全体家长，已忽略");
+            return;
+        }
         boolean useAi = TodoStore.aiEnabled(this) && TodoStore.aiConsent(this)
                 && !TodoStore.aiKey(this).isEmpty() && !TodoStore.aiModel(this).isEmpty();
         java.util.List<AiTaskAnalyzer.Task> aiTasks = null;
