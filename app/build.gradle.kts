@@ -10,8 +10,8 @@ android {
         applicationId = "cn.banwu.parentpilot"
         minSdk = 26
         targetSdk = 35
-        versionCode = 37
-        versionName = "0.5.20"
+        versionCode = 38
+        versionName = "0.5.21"
     }
 }
 
